@@ -33,6 +33,7 @@ import java.io.FileInputStream
 import java.net.URLConnection
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.random.Random
 
 class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
     companion object {
@@ -289,9 +290,12 @@ class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
             val inPublicDir = call.argument<Boolean>("inPublicDir") ?: true
             val directoryType = call.argument<String>("directory") ?: "DIRECTORY_DOWNLOADS"
             val subDirectory = call.argument<String>("subDirectory")
-            val tempSubDirectory = subDirectory ?: SimpleDateFormat(
-                "yyyy-MM-dd.HH.mm.sss", Locale.getDefault()
-            ).format(Date())
+
+            // add a random number to avoid conflicts, because when i downloaded multiple files so fast, the last file overwrites the previous ones
+            val tempSubDirectory = subDirectory ?: "${SimpleDateFormat(
+                "yyyy-MM-dd.HH.mm.sss",
+                Locale.getDefault()
+            ).format(Date())}${Random.nextInt(1000)}"
 
             val directory = convertToDirectory(directoryType)
 
@@ -358,6 +362,15 @@ class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
                         null
                     )
                 } else {
+                    if (!file.canRead()) {
+                        // it appears that the file is not readable, might the device is busy ( this happens when I try downloaded multiple files so fast)
+                        result.error(
+                            "read_failed",
+                            "Couldn't read ${file.absolutePath ?: tempSubDirectory} ",
+                            null
+                        )
+                        return@execute // return early
+                    }
                     val stream = BufferedInputStream(FileInputStream(file))
                     val mimeType =
                         outputMimeType ?: URLConnection.guessContentTypeFromStream(stream)
@@ -381,6 +394,12 @@ class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
                         .getMimeTypeFromExtension(newFile.extension) ?: ""
                     val imageId = saveToDatabase(newFile, mimeType ?: newMimeType, inPublicDir)
 
+                    if (imageId == "") {
+                        // in case the file was still downloaded but not saved to the gallery content provider, i don't know how to handle this case, someone might help :))
+
+                        // result.error("save_to_database_failed", "Couldn't save the file to the database.", null)
+                        // return@execute
+                    }
                     result.success(imageId)
                 }
             })
@@ -424,8 +443,12 @@ class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
                     null
                 ).use {
                     checkNotNull(it) { "${file.absolutePath} is not found." }
-                    it.moveToFirst()
-                    it.getString(it.getColumnIndex(MediaStore.Images.Media._ID))
+                    if (it.moveToFirst()) {
+                        it.getString(it.getColumnIndex(MediaStore.Images.Media._ID))
+                    } else {
+                        // it appears that the cursor is empty
+                        ""
+                    }
                 }
             } else {
                 val db = TemporaryDatabase(context)
