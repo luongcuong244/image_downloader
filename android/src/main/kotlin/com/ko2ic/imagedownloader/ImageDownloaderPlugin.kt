@@ -334,6 +334,10 @@ class ImageDownloaderPlugin : FlutterPlugin, ActivityAware, MethodCallHandler {
                             channel.invokeMethod("onProgressUpdate", args)
                         }
                     }
+                    // fix error
+                    // 'when' expression must be exhaustive, add necessary 'is Pending', 'is Successful' branches or 'else' branch instead
+                    is Downloader.DownloadStatus.Successful -> Log.d(LOGGER_TAG, "Successful")
+                    is Downloader.DownloadStatus.Pending -> Log.d(LOGGER_TAG, "Pending")
                     else -> throw AssertionError()
                 }
 
