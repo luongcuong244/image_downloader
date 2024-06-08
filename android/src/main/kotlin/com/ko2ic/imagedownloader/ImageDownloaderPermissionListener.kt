@@ -6,9 +6,24 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.PluginRegistry
+import android.os.Build
 
 class ImageDownloaderPermissionListener(private val activity: Activity) :
     PluginRegistry.RequestPermissionsResultListener {
+
+    private val storagePermissions = mutableListOf<String>().apply {
+        val readStoragePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+        this.add(readStoragePermission)
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            this.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
 
     private val permissionRequestId: Int = 2578166
 
@@ -18,7 +33,7 @@ class ImageDownloaderPermissionListener(private val activity: Activity) :
         requestCode: Int, permissions: Array<String>, grantResults: IntArray
     ): Boolean {
 
-        if (!isPermissionGranted(permissions)) {
+        if (!isStoragePermissionGranted()) {
             // when select deny.
             callback?.denied()
             return false
@@ -37,21 +52,19 @@ class ImageDownloaderPermissionListener(private val activity: Activity) :
     }
 
     fun alreadyGranted(): Boolean {
-        val permissions = arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-
-        if (!isPermissionGranted(permissions)) {
+        if (!isStoragePermissionGranted()) {
             // Request authorization. User is not yet authorized.
-            ActivityCompat.requestPermissions(activity, permissions, permissionRequestId)
+            ActivityCompat.requestPermissions(activity, storagePermissions.toTypedArray(), permissionRequestId)
             return false
         }
         // User already has authorization. Or below Android6.0
         return true
     }
 
-    private fun isPermissionGranted(permissions: Array<String>) = permissions.none {
-        ContextCompat.checkSelfPermission(
-            activity, it
-        ) != PackageManager.PERMISSION_GRANTED
+    fun isStoragePermissionGranted(): Boolean {
+        return storagePermissions.all {
+            activity.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     interface Callback {
