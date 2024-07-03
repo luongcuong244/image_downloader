@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 /// Provide the function to save the image on the Internet to each devices.
 class ImageDownloader {
@@ -28,14 +30,19 @@ class ImageDownloader {
     Map<String, String>? headers,
     AndroidDestinationType? destination,
   }) async {
-    return _channel.invokeMethod<String>('downloadImage', {
-      'url': url,
-      'mimeType': outputMimeType,
-      'headers': headers,
-      'inPublicDir': destination?._inPublicDir,
-      'directory': destination?._directory,
-      'subDirectory': destination?._subDirectory,
-    });
+    if (Platform.isAndroid) {
+      final cachedFile = await DefaultCacheManager().getSingleFile(url, shouldResizeTo512: true);
+      return _channel.invokeMethod<String>('downloadImage', { 'cachedPath': cachedFile.path });
+    } else {
+      return _channel.invokeMethod<String>('downloadImage', {
+        'url': url,
+        'mimeType': outputMimeType,
+        'headers': headers,
+        'inPublicDir': destination?._inPublicDir,
+        'directory': destination?._directory,
+        'subDirectory': destination?._subDirectory,
+      });
+    }
   }
 
   /// You can get the progress with [onProgressUpdate].

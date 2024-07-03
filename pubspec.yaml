@@ -10,6 +10,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_cache_manager:
+    git:
+      url: https://github.com/luongcuong244/flutter_cache_manager
+      path: flutter_cache_manager
+      ref: develop
 
 # For information on the generic Dart part of this file, see the
 # following page: https://www.dartlang.org/tools/pub/pubspec
