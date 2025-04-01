@@ -22,7 +22,7 @@ class _MyAppState extends State<MyApp> {
         body: Center(
           child: ElevatedButton(
             onPressed: () {
-              _downloadEmoji(context, "https://raw.githubusercontent.com/googlefonts/noto-emoji/main/svg/emoji_u1f600.svg",);
+              _downloadEmoji(context, "https://www.gstatic.com/android/keyboard/emojikitchen/20210521/u1fa84/u1fa84_u1f600.png",);
             },
             child: Text("Download emoji"),
           ),

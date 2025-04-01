@@ -82,13 +82,10 @@ class ImageDownloaderPlugin : FlutterPlugin, MethodCallHandler {
             ?: return result.error("context is null", null, null)
 
         try {
-            val svgFile: File = File(svgCachedPath)
-            val inputStream: InputStream = FileInputStream(svgFile)
-            val svg: SVG = SVG.getFromInputStream(inputStream)
-
-            val bitmap: Bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
-            val canvas: Canvas = Canvas(bitmap)
-            canvas.drawPicture(svg.renderToPicture())
+            val bitmap: Bitmap? = BitmapFactory.decodeFile(svgCachedPath)
+            if (bitmap == null) {
+                return result.error("Failed to decode image", null, null)
+            }
 
             val fileName = "${SimpleDateFormat(
                 "yyyy-MM-dd.HH.mm.sss",
