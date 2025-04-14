@@ -100,10 +100,12 @@ class ImageDownloaderPlugin : FlutterPlugin, MethodCallHandler {
                     put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
 
-                uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 uri?.let {
                     context.contentResolver.openOutputStream(it)?.use { outputStream ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                        outputStream.flush()
+                        outputStream.close()
                     }
                 }
             } else {
@@ -114,6 +116,8 @@ class ImageDownloaderPlugin : FlutterPlugin, MethodCallHandler {
                 val imageFile = File(downloadsDir, fileName)
                 FileOutputStream(imageFile).use { fos ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                    fos.flush()
+                    fos.close()
                 }
 
                 // Cập nhật MediaStore để ảnh hiển thị trong Gallery
