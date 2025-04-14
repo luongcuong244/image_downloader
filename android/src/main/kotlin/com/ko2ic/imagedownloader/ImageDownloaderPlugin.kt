@@ -73,13 +73,11 @@ class ImageDownloaderPlugin : FlutterPlugin, MethodCallHandler {
         svgCachedPath: String?,
         result: Result
     ) {
-        // check parameters
         if (svgCachedPath == null) {
             return result.error("parameters error", null, null)
         }
-        // check applicationContext
-        val context = applicationContext
-            ?: return result.error("context is null", null, null)
+
+        val context = applicationContext ?: return result.error("context is null", null, null)
 
         try {
             val bitmap: Bitmap? = BitmapFactory.decodeFile(svgCachedPath)
@@ -92,31 +90,49 @@ class ImageDownloaderPlugin : FlutterPlugin, MethodCallHandler {
                 Locale.getDefault()
             ).format(Date())}${Random.nextInt(1000)}.png"
 
-            // Create the content values to hold the metadata
-            val contentValues: ContentValues = ContentValues()
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            var uri: Uri? = null  // ✅ Khai báo ở ngoài để dùng chung
 
-            // Insert the image into the MediaStore
-            val uri = context.getContentResolver()
-                .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
-
-            uri?.let {
-                // Get the output stream for the file
-                val outputStream = context.getContentResolver().openOutputStream(uri)
-                // Compress the bitmap and write to the output stream
-                if (outputStream != null) {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                    outputStream.flush()
-                    outputStream.close()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10 trở lên
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                 }
-                sendBroadcast(context, uri)
+
+                uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+                uri?.let {
+                    context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                    }
+                }
+            } else {
+                // Android 9 trở xuống
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+
+                val imageFile = File(downloadsDir, fileName)
+                FileOutputStream(imageFile).use { fos ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+                }
+
+                // Cập nhật MediaStore để ảnh hiển thị trong Gallery
+                val values = ContentValues().apply {
+                    put(MediaStore.Images.Media.DATA, imageFile.absolutePath)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                }
+                context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+
+                uri = Uri.fromFile(imageFile)
             }
 
-            return result.success("unknown")
+            uri?.let {
+                sendBroadcast(context, it)
+            }
+
+            return result.success("saved")
         } catch (e: Exception) {
-            return result.error(e.message ?: "unknow", null, null)
+            return result.error(e.message ?: "unknown error", null, null)
         }
     }
 }
